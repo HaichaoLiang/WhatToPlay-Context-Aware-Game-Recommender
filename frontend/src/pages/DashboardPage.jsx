@@ -6,6 +6,9 @@ export default function DashboardPage({ me, onRefresh }) {
   const [syncResult, setSyncResult] = useState(null);
   const [err, setErr] = useState("");
 
+  // State to track if the background indexing process is likely still running
+  const [isIndexing, setIsIndexing] = useState(false);
+
   const [timeAvailable, setTimeAvailable] = useState(45);
   const [energy, setEnergy] = useState("low");
   const [platform, setPlatform] = useState("windows");
@@ -28,6 +31,9 @@ export default function DashboardPage({ me, onRefresh }) {
     [timeAvailable, energy, platform, socialMode, shuffleSeed]
   );
 
+  /**
+   * Syncs Steam library and triggers the background indexing notice.
+   */
   async function sync() {
     setErr("");
     setSyncResult(null);
@@ -35,6 +41,9 @@ export default function DashboardPage({ me, onRefresh }) {
     try {
       const data = await api.syncSteam();
       setSyncResult(data);
+      // Since the backend now handles metadata/indexing in a background thread,
+      // we show a notice to the user that new games might take a moment to appear.
+      setIsIndexing(true);
       await onRefresh();
     } catch (e) {
       setErr(e.message || String(e));
@@ -119,7 +128,32 @@ export default function DashboardPage({ me, onRefresh }) {
               </select>
             </label>
 
-            <button className="btn" onClick={runRecommendation} disabled={recoBusy}>
+            {/* Notice Banner: Displayed after a sync to explain background processing */}
+            {isIndexing && (
+              <div style={{
+                backgroundColor: '#fff3cd',
+                color: '#856404',
+                padding: '12px',
+                borderRadius: '8px',
+                marginBottom: '15px',
+                fontSize: '0.85rem',
+                border: '1px solid #ffeeba',
+                lineHeight: '1.4'
+              }}>
+                <button
+                  onClick={() => setIsIndexing(false)}
+                  style={{ float: 'right', border: 'none', background: 'none', cursor: 'pointer', fontSize: '1.2rem', marginTop: '-4px' }}
+                >
+                  &times;
+                </button>
+                <strong>System Notice:</strong><br/>
+                Background metadata sync and TF-IDF indexing are currently in progress.
+                It takes about 1.5s per game to process. If your newest games don't show up yet,
+                please wait 2-3 minutes and try again.
+              </div>
+            )}
+
+            <button className="btn fullWidth" onClick={runRecommendation} disabled={recoBusy}>
               {recoBusy ? "Ranking…" : "Generate Recommendation"}
             </button>
 
@@ -148,6 +182,14 @@ export default function DashboardPage({ me, onRefresh }) {
                   </div>
                 </div>
               </div>
+                </div>
+              )}
+
+              {/* Display a "No Results" notice if recommendation returns empty */}
+              {recoRes && !recoRes.top_pick && !recoBusy && (
+                <div className="resultCard mt8 muted" style={{ textAlign: 'center', padding: '20px' }}>
+                   No matches found for this context.<br/>
+                   Try adjusting your filters or wait for indexing to finish.
                 </div>
               )}
 
