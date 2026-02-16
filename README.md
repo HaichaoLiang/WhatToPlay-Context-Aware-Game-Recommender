@@ -1,16 +1,47 @@
-# React + Vite
+# WhatToPlay: Context-Aware Game Recommender
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Basic frontend implementation for the project proposal using React + Vite, without authentication for now.
 
-Currently, two official plugins are available:
+## Implemented in this baseline
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- Mobile-first context check-in UI:
+  - Time available slider
+  - Energy level
+  - Current goal (Relax / Competitive / Story / Social)
+  - Device selector
+  - Friends online toggle
+- API-backed recommendation generation
+- Ranked result view with:
+  - Top Pick card
+  - "Why this" explanation bullets
+  - Alternatives list
+  - Shuffle / Accept / Reject actions
+- Lightweight context-aware scoring logic (time fit, energy fit, social fit, device fit)
 
-## React Compiler
+## APIs used
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- FreeToGame API for game catalog metadata
+- CheapShark API for deal/rating enrichment
 
-## Expanding the ESLint configuration
+Both are wired through Vite dev proxy routes:
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- `/api/freetogame/*`
+- `/api/cheapshark/*`
+
+## Authentication status
+
+Not implemented yet (intentionally deferred).
+
+## Run locally
+
+```bash
+npm install
+npm run dev
+```
+
+## Build and lint
+
+```bash
+npm run lint
+npm run build
+```
