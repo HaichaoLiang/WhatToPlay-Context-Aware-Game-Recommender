@@ -15,10 +15,7 @@ steam_bp = Blueprint("steam", __name__)
 
 STEAMSPY_API_URL = "https://steamspy.com/api.php"
 
-
-# ==========================================
 # Helper Functions for Data Inference
-# ==========================================
 def build_document(name, genres, tags):
     """Build the document string for TF-IDF text similarity matching."""
     parts = [name]
@@ -56,10 +53,7 @@ def infer_multiplayer_mode(tags_dict):
         return "mmo"
     return "solo"
 
-
-# ==========================================
 # Internal Logic for Index Rebuilding
-# ==========================================
 def rebuild_tfidf_index_internal():
     """Fetches all games from DB and rebuilds the local .pkl index file."""
     print("[Background Index] Starting TF-IDF index rebuild...")
@@ -77,9 +71,7 @@ def rebuild_tfidf_index_internal():
     print(f"[Background Index] Index saved to: {out_path}. Vocab size: {len(index.vocab)}")
 
 
-# ==========================================
 # Background Task: Dual-API Sync + Index Rebuild
-# ==========================================
 def background_sync_missing(app):
     """
     Runs in a background thread to fetch missing metadata
@@ -162,9 +154,7 @@ def background_sync_missing(app):
             print("[Background Task] No new games added.")
 
 
-# ==========================================
 # Route: Sync User's Steam Library
-# ==========================================
 @steam_bp.post("/sync")
 @jwt_required()
 def sync_owned_games():
