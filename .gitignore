@@ -1,0 +1,95 @@
+# =========================
+# OS junk
+# =========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# =========================
+# IDE / Editor
+# =========================
+.vscode/
+.idea/
+*.iml
+
+# =========================
+# Python / venv
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+
+.venv/
+venv/
+ENV/
+env/
+
+# Python build/test
+build/
+dist/
+*.egg-info/
+.eggs/
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# =========================
+# Env files (secrets)
+# =========================
+.env
+.env.*
+!.env.example
+!frontend/.env.example
+!backend/.env.example
+
+# =========================
+# Logs
+# =========================
+*.log
+logs/
+
+# =========================
+# Node / Frontend
+# =========================
+node_modules/
+frontend/node_modules/
+
+frontend/dist/
+dist/
+frontend/.vite/
+
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# =========================
+# Backend generated data / indexes
+# =========================
+backend/data/index/
+backend/data/**/*.pkl
+backend/data/**/*.pickle
+
+# Local dataset files (large)
+backend/data/**/*.parquet
+backend/data/**/*.json
+backend/data/**/*.zip
+
+# If you ever put dataset under other names
+**/games.csv
+
+# =========================
+# Flask instance / runtime
+# =========================
+instance/
+*.sqlite3
+*.db
+
+# =========================
+# Do NOT ignore migrations (keep these)
+# =========================
+!backend/migrations/
+!backend/migrations/versions/
+!backend/migrations/versions/*.py
