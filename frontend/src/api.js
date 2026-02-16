@@ -78,4 +78,18 @@ export const api = {
       auth: true,
       body: { query, topk },
     }),
+
+  recommend: (payload) =>
+    request("/api/recommend", {
+      method: "POST",
+      auth: true,
+      body: payload,
+    }),
+
+  sendFeedback: (appid, action, genres, context) =>
+    request("/api/recommend/feedback", {
+      method: "POST",
+      auth: true,
+      body: { appid, action, genres, context },
+    }),
 };

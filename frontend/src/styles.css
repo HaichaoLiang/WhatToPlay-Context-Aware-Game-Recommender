@@ -192,3 +192,57 @@ input:focus {
 }
 
 .mt8 { margin-top: 8px; }
+
+select {
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(0,0,0,.25);
+  color: #e8ecf6;
+  padding: 10px 12px;
+  outline: none;
+}
+
+.results {
+  display: grid;
+  gap: 8px;
+}
+
+.resultCard {
+  border: 1px solid rgba(255,255,255,.1);
+  background: rgba(0,0,0,.2);
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.resultTop {
+  display: flex;
+  gap: 10px;
+}
+
+.thumb {
+  width: 120px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,.12);
+}
+
+.thumb.placeholder {
+  background: rgba(255,255,255,.08);
+}
+
+.title { font-weight: 700; }
+.small { font-size: 12px; }
+
+.whyBox {
+  margin-top: 6px;
+  font-size: 13px;
+  color: #d9e7ff;
+}
+
+.actionsRow {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}

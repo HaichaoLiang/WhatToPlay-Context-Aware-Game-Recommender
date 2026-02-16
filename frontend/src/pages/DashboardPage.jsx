@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { api } from "../api.js";
 
 export default function DashboardPage({ me, onRefresh }) {
@@ -6,10 +6,27 @@ export default function DashboardPage({ me, onRefresh }) {
   const [syncResult, setSyncResult] = useState(null);
   const [err, setErr] = useState("");
 
-  const [q, setQ] = useState("co-op horror");
-  const [searchBusy, setSearchBusy] = useState(false);
-  const [searchErr, setSearchErr] = useState("");
-  const [searchRes, setSearchRes] = useState(null);
+  const [timeAvailable, setTimeAvailable] = useState(45);
+  const [energy, setEnergy] = useState("low");
+  const [platform, setPlatform] = useState("windows");
+  const [socialMode, setSocialMode] = useState("any");
+
+  const [recoBusy, setRecoBusy] = useState(false);
+  const [recoErr, setRecoErr] = useState("");
+  const [recoRes, setRecoRes] = useState(null);
+  const [shuffleSeed, setShuffleSeed] = useState(0);
+
+  const contextPayload = useMemo(
+    () => ({
+      time_available_min: Number(timeAvailable),
+      energy_level: energy,
+      platform,
+      social_mode: socialMode,
+      prefer_installed: true,
+      shuffle_seed: shuffleSeed,
+    }),
+    [timeAvailable, energy, platform, socialMode, shuffleSeed]
+  );
 
   async function sync() {
     setErr("");
@@ -26,18 +43,31 @@ export default function DashboardPage({ me, onRefresh }) {
     }
   }
 
-  async function doSearch() {
-    setSearchErr("");
-    setSearchRes(null);
-    setSearchBusy(true);
+  async function runRecommendation() {
+    setRecoErr("");
+    setRecoRes(null);
+    setRecoBusy(true);
     try {
-      const data = await api.search(q, 10);
-      setSearchRes(data);
+      const data = await api.recommend(contextPayload);
+      setRecoRes(data);
     } catch (e) {
-      setSearchErr(e.message || String(e));
+      setRecoErr(e.message || String(e));
     } finally {
-      setSearchBusy(false);
+      setRecoBusy(false);
     }
+  }
+
+  async function sendFeedback(item, action) {
+    try {
+      await api.sendFeedback(item.appid, action, item.genres, contextPayload);
+    } catch (_) {
+      // ignore feedback errors in MVP UI
+    }
+  }
+
+  async function shuffleRecommendation() {
+    setShuffleSeed((v) => v + 1);
+    setTimeout(runRecommendation, 0);
   }
 
   return (
@@ -46,57 +76,105 @@ export default function DashboardPage({ me, onRefresh }) {
 
       <div className="grid2">
         <div className="panel">
-          <h3>User</h3>
-          <div className="kv">
-            <div className="k">Email</div>
-            <div className="v">{me?.user?.email}</div>
-
-            <div className="k">User ID</div>
-            <div className="v">{me?.user?.id}</div>
-          </div>
-
-          <h3 className="mt16">Search</h3>
+          <h3>Context Check-in</h3>
           <div className="form">
             <label>
-              Query
-              <input value={q} onChange={(e) => setQ(e.target.value)} />
+              Time Available: <b>{timeAvailable} min</b>
+              <input
+                type="range"
+                min="10"
+                max="180"
+                step="5"
+                value={timeAvailable}
+                onChange={(e) => setTimeAvailable(e.target.value)}
+              />
             </label>
 
-            <button className="btn" onClick={doSearch} disabled={searchBusy}>
-              {searchBusy ? "Searching…" : "Search (TF-IDF + cosine)"}
+            <label>
+              Energy Level
+              <select value={energy} onChange={(e) => setEnergy(e.target.value)}>
+                <option value="low">Low energy (relax)</option>
+                <option value="high">High energy (focus)</option>
+              </select>
+            </label>
+
+            <label>
+              Device Platform
+              <select value={platform} onChange={(e) => setPlatform(e.target.value)}>
+                <option value="windows">Windows</option>
+                <option value="mac">Mac</option>
+                <option value="linux">Linux</option>
+              </select>
+            </label>
+
+            <label>
+              Social Intent
+              <select
+                value={socialMode}
+                onChange={(e) => setSocialMode(e.target.value)}
+              >
+                <option value="any">Any</option>
+                <option value="solo">Solo</option>
+                <option value="social">Play with friends</option>
+              </select>
+            </label>
+
+            <button className="btn" onClick={runRecommendation} disabled={recoBusy}>
+              {recoBusy ? "Ranking…" : "Generate Recommendation"}
             </button>
 
-            {searchErr && <div className="error">{searchErr}</div>}
-
-            {searchRes && (
-              <div className="results">
-                {searchRes.results.map((r) => (
-                  <div key={r.appid} className="resultCard">
-                    <div className="resultTop">
-                      {r.header_image ? (
-                        <img className="thumb" src={r.header_image} alt="" />
-                      ) : (
-                        <div className="thumb placeholder" />
-                      )}
-                      <div>
-                        <div className="title">{r.name}</div>
-                        <div className="muted small">
-                          score={r.score.toFixed(4)} · appid={r.appid}
-                        </div>
-                        <div className="muted small">
-                          why: {r.why?.map((w) => w.term).join(", ")}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            {recoErr && <div className="error">{recoErr}</div>}
           </div>
+
+          {recoRes?.top_pick && (
+            <div className="resultCard mt8">
+              <h4>Top Pick</h4>
+              <div className="resultTop">
+                {recoRes.top_pick.header_image ? (
+                  <img className="thumb" src={recoRes.top_pick.header_image} alt="" />
+                ) : (
+                  <div className="thumb placeholder" />
+                )}
+                <div>
+                  <div className="title">{recoRes.top_pick.name}</div>
+                  <div className="muted small">score={recoRes.top_pick.score}</div>
+                  <div className="whyBox">
+                    Why This? {recoRes.top_pick.why?.join(" · ") || "Matches your current context"}
+                  </div>
+                    <div className="actionsRow">
+                    <button className="btn" onClick={() => sendFeedback(recoRes.top_pick, "accept")}>Accept</button>
+                    <button className="btn btn-ghost" onClick={() => sendFeedback(recoRes.top_pick, "reject")}>Reject</button>
+                    <button className="btn btn-ghost" onClick={shuffleRecommendation}>Shuffle</button>
+                  </div>
+                </div>
+              </div>
+                </div>
+              )}
+
+              {!!recoRes?.alternatives?.length && (
+                <div className="results mt8">
+                    <h4>Alternatives</h4>
+                    {recoRes.alternatives.map((r) => (
+                        <div key={r.appid} className="resultCard">
+                            <div className="resultTop">
+                                {r.header_image ? (
+                                    <img className="thumb" src={r.header_image} alt="" />
+                                ) : (
+                                    <div className="thumb placeholder" />
+                                )}
+                                <div>
+                                    <div className="title">{r.name}</div>
+                                    <div className="muted small">{r.why?.join(" · ")}</div>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+              )}
         </div>
 
         <div className="panel">
-          <h3>Steam</h3>
+          <h3>Steam Library</h3>
           <div className="steamRow">
             {me?.steam?.avatar ? (
               <img className="avatar" src={me.steam.avatar} alt="avatar" />
@@ -116,10 +194,7 @@ export default function DashboardPage({ me, onRefresh }) {
           </button>
 
           {err && <div className="error mt8">{err}</div>}
-
-          {syncResult && (
-            <pre className="pre mt8">{JSON.stringify(syncResult, null, 2)}</pre>
-          )}
+            {syncResult && <pre className="pre mt8">{JSON.stringify(syncResult, null, 2)}</pre>}
         </div>
       </div>
     </div>
