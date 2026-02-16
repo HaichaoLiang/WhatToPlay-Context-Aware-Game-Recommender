@@ -170,6 +170,29 @@ span {
   font-size: 0.86rem;
 }
 
+.time-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.time-input-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.time-input {
+  width: 74px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-2) 86%, transparent);
+  color: var(--text-main);
+  padding: 0 8px;
+}
+
 input[type='range'] {
   width: 100%;
   margin: 8px 0 18px;

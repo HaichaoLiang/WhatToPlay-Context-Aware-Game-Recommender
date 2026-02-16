@@ -258,6 +258,13 @@ function App() {
   const topPick = rankedGames[shuffleIndex] || null
   const alternatives = useMemo(() => rankedGames.slice(shuffleIndex + 1, shuffleIndex + 6), [rankedGames, shuffleIndex])
 
+  const handleTimeChange = (value) => {
+    const numeric = Number(value)
+    if (Number.isNaN(numeric)) return
+    const clamped = Math.max(15, Math.min(180, numeric))
+    setTimeAvailable(clamped)
+  }
+
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
     localStorage.setItem('theme', theme)
@@ -324,15 +331,30 @@ function App() {
           Context check-in first. We rank games by time fit, energy match, social context, and device feasibility.
         </p>
 
-        <label htmlFor="time-slider">Time Available: {timeAvailable} minutes</label>
+        <div className="time-row">
+          <label htmlFor="time-slider">Time Available</label>
+          <div className="time-input-wrap">
+            <input
+              id="time-input"
+              className="time-input"
+              type="number"
+              min="15"
+              max="180"
+              step="5"
+              value={timeAvailable}
+              onChange={(event) => handleTimeChange(event.target.value)}
+            />
+            <span>min</span>
+          </div>
+        </div>
         <input
           id="time-slider"
           type="range"
           min="15"
           max="180"
-          step="15"
+          step="5"
           value={timeAvailable}
-          onChange={(event) => setTimeAvailable(Number(event.target.value))}
+          onChange={(event) => handleTimeChange(event.target.value)}
         />
 
         <div className="row-group">
