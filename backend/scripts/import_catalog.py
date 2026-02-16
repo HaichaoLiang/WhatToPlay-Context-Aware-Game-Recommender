@@ -151,6 +151,10 @@ def main():
                 positive = _i(row.get("Positive"))
                 negative = _i(row.get("Negative"))
 
+                avg_session_minutes = _i(row.get("Average session minutes") or row.get("Avg Session Minutes"))
+                multiplayer_mode = _s(row.get("Multiplayer mode") or row.get("Multiplayer"))
+                difficulty = _s(row.get("Difficulty"))
+
                 document = build_document(name, categories, genres, tags, about)
 
                 existing = db.session.get(GameCatalog, appid)
@@ -174,6 +178,9 @@ def main():
                     existing.metacritic_score = metacritic_score
                     existing.positive = positive
                     existing.negative = negative
+                    existing.avg_session_minutes = avg_session_minutes
+                    existing.multiplayer_mode = multiplayer_mode
+                    existing.difficulty = difficulty
                     existing.document = document
                     updated += 1
                 else:
@@ -198,6 +205,9 @@ def main():
                         metacritic_score=metacritic_score,
                         positive=positive,
                         negative=negative,
+                        avg_session_minutes=avg_session_minutes,
+                        multiplayer_mode=multiplayer_mode,
+                        difficulty=difficulty,
                         document=document,
                     ))
                     inserted += 1

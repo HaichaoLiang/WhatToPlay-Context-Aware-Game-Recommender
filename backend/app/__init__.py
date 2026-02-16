@@ -27,11 +27,13 @@ def create_app():
     from .routes.account import account_bp
     from .routes.steam import steam_bp
     from .routes.search import search_bp
+    from .routes.recommend import recommend_bp
 
     app.register_blueprint(health_bp, url_prefix="/api")
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(account_bp, url_prefix="/api/account")
     app.register_blueprint(steam_bp, url_prefix="/api/steam")
     app.register_blueprint(search_bp, url_prefix="/api/search")
+    app.register_blueprint(recommend_bp, url_prefix="/api/recommend")
 
     return app

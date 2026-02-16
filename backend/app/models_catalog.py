@@ -35,6 +35,10 @@ class GameCatalog(db.Model):
     positive = db.Column(db.Integer, nullable=True)
     negative = db.Column(db.Integer, nullable=True)
 
+    avg_session_minutes = db.Column(db.Integer, nullable=True)
+    multiplayer_mode = db.Column(db.String(64), nullable=True)  # solo/coop/pvp/mmo
+    difficulty = db.Column(db.String(32), nullable=True)
+    
     document = db.Column(LONGTEXT, nullable=True)
 
     def to_dict(self):

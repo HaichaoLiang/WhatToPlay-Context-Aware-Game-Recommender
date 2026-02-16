@@ -42,3 +42,22 @@ class Feedback(db.Model):
     appid = db.Column(db.Integer, index=True, nullable=False)
     action = db.Column(db.String(32), nullable=False)  # accept/reject/click
     ts = db.Column(db.BigInteger, nullable=False)
+    context_snapshot = db.Column(db.Text, nullable=True)
+
+class UserPreference(db.Model):
+    __tablename__ = "user_preferences"
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    auth_user_id = db.Column(db.Integer, unique=True, index=True, nullable=False)
+    genre_weights = db.Column(db.Text, nullable=True)
+    comfort_bias = db.Column(db.Float, default=0.0, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+class UserContextLog(db.Model):
+    __tablename__ = "user_context_logs"
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    auth_user_id = db.Column(db.Integer, index=True, nullable=False)
+    time_available_min = db.Column(db.Integer, nullable=False)
+    energy_level = db.Column(db.String(16), nullable=False)  # low/high
+    platform = db.Column(db.String(16), nullable=False)  # windows/mac/linux
+    social_mode = db.Column(db.String(16), nullable=False)  # solo/social/any
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
