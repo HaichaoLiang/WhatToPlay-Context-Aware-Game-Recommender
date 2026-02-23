@@ -6,15 +6,9 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/api/freetogame': {
-        target: 'https://www.freetogame.com/api',
+      '/api': {
+        target: 'http://127.0.0.1:5001',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/freetogame/, ''),
-      },
-      '/api/cheapshark': {
-        target: 'https://www.cheapshark.com/api/1.0',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/cheapshark/, ''),
       },
     },
   },

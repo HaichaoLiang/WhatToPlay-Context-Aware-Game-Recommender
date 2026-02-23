@@ -1,46 +1,52 @@
 # WhatToPlay: Context-Aware Game Recommender
 
-Basic frontend implementation for the project proposal using React + Vite, without authentication for now.
+This repo now contains:
 
-## Implemented in this baseline
+- `src/` React frontend (your current UI)
+- `backend/` Flask backend (Steam auth/sync + recommendation/search routes)
 
-- Mobile-first context check-in UI:
-  - Time available slider
-  - Energy level
-  - Current goal (Relax / Competitive / Story / Social)
-  - Device selector
-  - Friends online toggle
-- API-backed recommendation generation
-- Ranked result view with:
-  - Top Pick card
-  - "Why this" explanation bullets
-  - Alternatives list
-  - Shuffle / Accept / Reject actions
-- Lightweight context-aware scoring logic (time fit, energy fit, social fit, device fit)
+## Current integration
 
-## APIs used
+- Frontend calls backend route: `POST /api/public/recommend`
+- Vite dev proxy forwards `/api/*` to `http://127.0.0.1:5000`
+- If backend is unavailable, frontend falls back to local demo data
 
-- FreeToGame API for game catalog metadata
-- CheapShark API for deal/rating enrichment
+## Backend routes now available
 
-Both are wired through Vite dev proxy routes:
-
-- `/api/freetogame/*`
-- `/api/cheapshark/*`
-
-## Authentication status
-
-Not implemented yet (intentionally deferred).
+- `/api/health`
+- `/api/auth/*`
+- `/api/account/*`
+- `/api/steam/*`
+- `/api/search/*`
+- `/api/recommend/*`
+- `/api/public/recommend` (new non-auth endpoint for current frontend)
 
 ## Run locally
+
+### 1) Backend
+
+```bash
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python run.py
+```
+
+Notes:
+- `DATABASE_URL` defaults to `sqlite:///whattoplay.db` if not set
+- For Steam features, set `STEAM_API_KEY` in environment
+
+### 2) Frontend (new terminal)
 
 ```bash
 npm install
 npm run dev
 ```
 
-## Build and lint
+## Validation
 
+Frontend checks:
 ```bash
 npm run lint
 npm run build
