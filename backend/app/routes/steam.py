@@ -4,6 +4,7 @@ import threading
 from flask import Blueprint, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from sqlalchemy.dialects.mysql import insert as mysql_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from app import db
 from app.models import SteamProfile, UserGameStat
@@ -190,13 +191,26 @@ def sync_owned_games():
             "last_played": int(g.get("rtime_last_played") or 0) or None
         })
 
-    stmt = mysql_insert(UserGameStat).values(rows)
-    stmt = stmt.on_duplicate_key_update(
-        playtime_forever=stmt.inserted.playtime_forever,
-        playtime_2weeks=stmt.inserted.playtime_2weeks,
-        last_played=stmt.inserted.last_played
-    )
-    db.session.execute(stmt)
+    dialect_name = db.session.bind.dialect.name if db.session.bind else ""
+    if dialect_name == "sqlite":
+        stmt = sqlite_insert(UserGameStat).values(rows)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["steamid", "appid"],
+            set_={
+                "playtime_forever": stmt.excluded.playtime_forever,
+                "playtime_2weeks": stmt.excluded.playtime_2weeks,
+                "last_played": stmt.excluded.last_played,
+            },
+        )
+        db.session.execute(stmt)
+    else:
+        stmt = mysql_insert(UserGameStat).values(rows)
+        stmt = stmt.on_duplicate_key_update(
+            playtime_forever=stmt.inserted.playtime_forever,
+            playtime_2weeks=stmt.inserted.playtime_2weeks,
+            last_played=stmt.inserted.last_played
+        )
+        db.session.execute(stmt)
     sp.last_sync_ts = now
     db.session.commit()
 
