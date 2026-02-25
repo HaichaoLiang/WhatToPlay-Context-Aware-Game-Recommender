@@ -329,6 +329,11 @@
   margin-top: 8px;
 }
 
+.intro-learn-row {
+  margin-top: 6px;
+  display: flex;
+}
+
 .intro-secondary-btn,
 .intro-link-btn {
   height: 36px;
@@ -352,6 +357,70 @@
   border-radius: 12px;
   padding: 10px;
   background: color-mix(in srgb, var(--surface-2) 90%, transparent);
+}
+
+.intro-flow {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 14px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 92%, transparent), color-mix(in srgb, var(--surface) 84%, transparent));
+}
+
+.intro-flow-header h2 {
+  margin: 6px 0 8px;
+  color: var(--text-main);
+  font-size: clamp(1.15rem, 2vw, 1.45rem);
+}
+
+.intro-flow-header .subtitle {
+  margin-bottom: 10px;
+}
+
+.intro-steps {
+  display: grid;
+  gap: 10px;
+}
+
+.intro-step-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  background: color-mix(in srgb, var(--surface-2) 88%, transparent);
+}
+
+.intro-step-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.intro-step-card h3 {
+  margin: 10px 0 4px;
+  color: var(--text-main);
+  font-size: 0.98rem;
+}
+
+.intro-step-card p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.intro-bottom-cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
 }
 
 h1 {
