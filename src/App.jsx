@@ -6,6 +6,7 @@ import SteamSetupPage from './pages/SteamSetupPage'
 import RecommendationsDashboardPage from './pages/RecommendationsDashboardPage'
 
 const TOKEN_KEY = 'wtp_token'
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
 
 const FALLBACK_GAMES = [
   {
@@ -155,8 +156,9 @@ const rankGames = ({ games, context }) => {
 async function apiRequest(path, { method = 'GET', body, token } = {}) {
   const headers = { 'Content-Type': 'application/json' }
   if (token) headers.Authorization = `Bearer ${token}`
+  const url = path.startsWith('/api') && API_BASE_URL ? `${API_BASE_URL}${path}` : path
 
-  const response = await fetch(path, {
+  const response = await fetch(url, {
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,
