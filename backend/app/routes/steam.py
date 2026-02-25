@@ -191,32 +191,40 @@ def sync_owned_games():
             "last_played": int(g.get("rtime_last_played") or 0) or None
         })
 
-    dialect_name = db.session.bind.dialect.name if db.session.bind else ""
-    if dialect_name == "sqlite":
-        stmt = sqlite_insert(UserGameStat).values(rows)
-        stmt = stmt.on_conflict_do_update(
-            index_elements=["steamid", "appid"],
-            set_={
-                "playtime_forever": stmt.excluded.playtime_forever,
-                "playtime_2weeks": stmt.excluded.playtime_2weeks,
-                "last_played": stmt.excluded.last_played,
-            },
-        )
-        db.session.execute(stmt)
-    else:
-        stmt = mysql_insert(UserGameStat).values(rows)
-        stmt = stmt.on_duplicate_key_update(
-            playtime_forever=stmt.inserted.playtime_forever,
-            playtime_2weeks=stmt.inserted.playtime_2weeks,
-            last_played=stmt.inserted.last_played
-        )
-        db.session.execute(stmt)
+    bind = db.session.get_bind() or db.engine
+    dialect_name = bind.dialect.name if bind is not None else ""
+
+    # SQLite on Render free tier can hit parameter limits for large libraries.
+    # Chunking avoids "too many SQL variables" during bulk UPSERT.
+    chunk_size = 120 if dialect_name == "sqlite" else 500
+    for i in range(0, len(rows), chunk_size):
+        chunk = rows[i:i + chunk_size]
+
+        if dialect_name == "sqlite":
+            stmt = sqlite_insert(UserGameStat).values(chunk)
+            stmt = stmt.on_conflict_do_update(
+                index_elements=["steamid", "appid"],
+                set_={
+                    "playtime_forever": stmt.excluded.playtime_forever,
+                    "playtime_2weeks": stmt.excluded.playtime_2weeks,
+                    "last_played": stmt.excluded.last_played,
+                },
+            )
+            db.session.execute(stmt)
+        else:
+            stmt = mysql_insert(UserGameStat).values(chunk)
+            stmt = stmt.on_duplicate_key_update(
+                playtime_forever=stmt.inserted.playtime_forever,
+                playtime_2weeks=stmt.inserted.playtime_2weeks,
+                last_played=stmt.inserted.last_played
+            )
+            db.session.execute(stmt)
     sp.last_sync_ts = now
     db.session.commit()
 
     # Trigger background completion
     app_object = current_app._get_current_object()
-    threading.Thread(target=background_sync_missing, args=(app_object,)).start()
+    threading.Thread(target=background_sync_missing, args=(app_object,), daemon=True).start()
 
     return jsonify({
         "ok": True,
