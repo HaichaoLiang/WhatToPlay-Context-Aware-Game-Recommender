@@ -26,10 +26,13 @@ function RecommendationContextForm({
   const [timeDraft, setTimeDraft] = useState(String(timeAvailable))
   const friendsToRender = useMemo(() => {
     const source = steamFriends || []
-    return [...source].sort((a, b) => {
-      if (Boolean(a.online) === Boolean(b.online)) return 0
-      return a.online ? -1 : 1
-    })
+    const getPresenceRank = (friend) => {
+      if (friend?.game) return 0
+      if (friend?.online) return 1
+      return 2
+    }
+
+    return [...source].sort((a, b) => getPresenceRank(a) - getPresenceRank(b))
   }, [steamFriends])
   const showFriendsLoading = dataSource === 'private' && friendsLoading
   const hasFriends = friendsToRender.length > 0
