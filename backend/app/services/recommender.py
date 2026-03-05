@@ -44,6 +44,15 @@ def clamp(v, lo, hi):
     return max(lo, min(hi, v))
 
 
+def recency_days(last_played_ts: int | None):
+    if not last_played_ts:
+        return None
+    now = int(time.time())
+    if last_played_ts > now:
+        return 0
+    return (now - last_played_ts) / 86400
+
+
 def score_candidate(game_stat, catalog, ctx: RecommendationContext, genre_weights: dict, comfort_bias: float):
     reasons = []
     score = 0.0
@@ -95,9 +104,31 @@ def score_candidate(game_stat, catalog, ctx: RecommendationContext, genre_weight
         if comfort_bias > 0.7:
             reasons.append("Aligned with your comfort picks")
 
+    # Installation / readiness proxy (Steam owned games don't always expose install state).
+    # We treat very recent activity as "ready to launch" when user prefers installed titles.
+    if ctx.prefer_installed:
+        recent_days = recency_days(game_stat.last_played)
+        if game_stat.playtime_2weeks and game_stat.playtime_2weeks > 0:
+            score += 5
+            reasons.append("Recently active in your library")
+        elif recent_days is not None and recent_days <= 30:
+            score += 3
+        else:
+            score -= 2
+
     # Novelty bonus for backlog items
     if (game_stat.playtime_forever or 0) < 30:
         score += 6
+
+    # Re-engagement boost for long-tail games: played before, but not in recent months.
+    recent_days = recency_days(game_stat.last_played)
+    if recent_days is not None and recent_days >= 90 and (game_stat.playtime_forever or 0) >= 60:
+        score += 4
+        reasons.append("Good time to revisit")
+
+    # Mild fatigue penalty for heavily played titles with no recent activity.
+    if (game_stat.playtime_forever or 0) > 2000 and (recent_days is None or recent_days > 180):
+        score -= 5
 
     # Recent activity tiny boost
     if game_stat.playtime_2weeks and game_stat.playtime_2weeks > 0:
