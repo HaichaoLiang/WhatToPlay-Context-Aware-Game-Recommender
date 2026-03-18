@@ -1,5 +1,8 @@
 from app import db
+import sqlalchemy as sa
 from sqlalchemy.dialects.mysql import LONGTEXT
+
+LONGTEXT_COMPAT = sa.Text().with_variant(LONGTEXT(), "mysql")
 
 
 class GameCatalog(db.Model):
@@ -13,19 +16,19 @@ class GameCatalog(db.Model):
     release_date = db.Column(db.String(64), nullable=True)
     price = db.Column(db.Float, nullable=True)
 
-    about = db.Column(LONGTEXT, nullable=True)
-    supported_languages = db.Column(LONGTEXT, nullable=True)
-    full_audio_languages = db.Column(LONGTEXT, nullable=True)
+    about = db.Column(LONGTEXT_COMPAT, nullable=True)
+    supported_languages = db.Column(LONGTEXT_COMPAT, nullable=True)
+    full_audio_languages = db.Column(LONGTEXT_COMPAT, nullable=True)
 
-    developers = db.Column(LONGTEXT, nullable=True)
-    publishers = db.Column(LONGTEXT, nullable=True)
+    developers = db.Column(LONGTEXT_COMPAT, nullable=True)
+    publishers = db.Column(LONGTEXT_COMPAT, nullable=True)
 
-    categories = db.Column(LONGTEXT, nullable=True)
-    genres = db.Column(LONGTEXT, nullable=True)
-    tags = db.Column(LONGTEXT, nullable=True)
+    categories = db.Column(LONGTEXT_COMPAT, nullable=True)
+    genres = db.Column(LONGTEXT_COMPAT, nullable=True)
+    tags = db.Column(LONGTEXT_COMPAT, nullable=True)
 
-    header_image = db.Column(LONGTEXT, nullable=True)
-    website = db.Column(LONGTEXT, nullable=True)
+    header_image = db.Column(LONGTEXT_COMPAT, nullable=True)
+    website = db.Column(LONGTEXT_COMPAT, nullable=True)
 
     windows = db.Column(db.Boolean, nullable=True)
     mac = db.Column(db.Boolean, nullable=True)
@@ -39,7 +42,7 @@ class GameCatalog(db.Model):
     multiplayer_mode = db.Column(db.String(64), nullable=True)  # solo/coop/pvp/mmo
     difficulty = db.Column(db.String(32), nullable=True)
     
-    document = db.Column(LONGTEXT, nullable=True)
+    document = db.Column(LONGTEXT_COMPAT, nullable=True)
 
     def to_dict(self):
         return {

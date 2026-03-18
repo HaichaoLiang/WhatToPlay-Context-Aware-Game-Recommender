@@ -7,6 +7,7 @@ function RecommendationsDashboardPage({
   steamBusy,
   steamMessage,
   librarySyncNotice,
+  steamSyncStatus,
   steamIdInput,
   setSteamIdInput,
   onBindSteam,
@@ -63,7 +64,8 @@ function RecommendationsDashboardPage({
             <button type="button" className="chip" onClick={onLogout}>Logout</button>
           </div>
           {!!steamMessage && <p className="auth-note">{steamMessage}</p>}
-          {!!librarySyncNotice && <p className="sync-note">{librarySyncNotice}</p>}
+          {!!steamSyncStatus?.pending && !!steamSyncStatus?.message && <p className="sync-note">{steamSyncStatus.message}</p>}
+          {!steamSyncStatus?.pending && !!librarySyncNotice && <p className="sync-note">{librarySyncNotice}</p>}
         </div>
       </div>
 

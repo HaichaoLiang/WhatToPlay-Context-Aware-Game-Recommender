@@ -4,6 +4,7 @@ import threading
 from flask import Blueprint, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from sqlalchemy.dialects.mysql import insert as mysql_insert
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from app import db
@@ -15,6 +16,19 @@ from app.services.tfidf_index import build_index_from_documents, save_index
 steam_bp = Blueprint("steam", __name__)
 
 STEAMSPY_API_URL = "https://steamspy.com/api.php"
+SYNC_STATUS: dict[str, dict] = {}
+SYNC_STATUS_LOCK = threading.Lock()
+
+
+def set_sync_status(steamid: str, **payload):
+    with SYNC_STATUS_LOCK:
+        current = SYNC_STATUS.get(steamid, {})
+        SYNC_STATUS[steamid] = {**current, **payload, "updated_at": int(time.time())}
+
+
+def get_sync_status_payload(steamid: str) -> dict:
+    with SYNC_STATUS_LOCK:
+        return dict(SYNC_STATUS.get(steamid, {"state": "idle", "pending": False}))
 
 # Helper Functions for Data Inference
 def build_document(name, genres, tags):
@@ -73,7 +87,7 @@ def rebuild_tfidf_index_internal():
 
 
 # Background Task: Dual-API Sync + Index Rebuild
-def background_sync_missing(app):
+def background_sync_missing(app, steamid: str):
     """
     Runs in a background thread to fetch missing metadata
     and rebuild the TF-IDF index.
@@ -86,9 +100,17 @@ def background_sync_missing(app):
         missing_appids = list(owned_appids - catalog_appids)
         if not missing_appids:
             print("[Background Task] No missing games to sync.")
+            set_sync_status(steamid, state="ready", pending=False, message="Steam library sync is fully complete.")
             return
 
         print(f"[Background Task] Found {len(missing_appids)} missing games. Starting sync...")
+        set_sync_status(
+            steamid,
+            state="metadata_syncing",
+            pending=True,
+            message=f"Steam library ownership imported. Finishing metadata sync for up to {min(len(missing_appids), 100)} games...",
+            remaining=min(len(missing_appids), 100),
+        )
 
         limit = 100
         inserted = 0
@@ -141,6 +163,13 @@ def background_sync_missing(app):
                 db.session.add(new_game)
                 inserted += 1
                 print(f"[Background Task] AppID {appid} synced ({name})")
+                set_sync_status(
+                    steamid,
+                    state="metadata_syncing",
+                    pending=True,
+                    message=f"Still syncing metadata... {inserted}/{min(len(missing_appids), limit)} completed.",
+                    remaining=max(0, min(len(missing_appids), limit) - inserted),
+                )
 
             except Exception as e:
                 print(f"[Background Task] AppID {appid} failed: {e}")
@@ -151,8 +180,22 @@ def background_sync_missing(app):
             db.session.commit()
             print(f"[Background Task] Successfully added {inserted} games. Rebuilding index...")
             rebuild_tfidf_index_internal()
+            set_sync_status(
+                steamid,
+                state="ready",
+                pending=False,
+                message=f"Steam library sync is fully complete. Metadata updated for {inserted} games.",
+                remaining=0,
+            )
         else:
             print("[Background Task] No new games added.")
+            set_sync_status(
+                steamid,
+                state="ready",
+                pending=False,
+                message="Steam library ownership imported. No new metadata updates were needed.",
+                remaining=0,
+            )
 
 
 # Route: Sync User's Steam Library
@@ -178,6 +221,7 @@ def sync_owned_games():
     if not games:
         sp.last_sync_ts = now
         db.session.commit()
+        set_sync_status(sp.steamid, state="ready", pending=False, message="Steam library sync is fully complete.", remaining=0)
         return jsonify({"ok": True, "synced": 0}), 200
 
     # UPSERT stats
@@ -194,7 +238,7 @@ def sync_owned_games():
     bind = db.session.get_bind() or db.engine
     dialect_name = bind.dialect.name if bind is not None else ""
 
-    # SQLite on Render free tier can hit parameter limits for large libraries.
+    # SQLite can hit parameter limits for large libraries.
     # Chunking avoids "too many SQL variables" during bulk UPSERT.
     chunk_size = 120 if dialect_name == "sqlite" else 500
     for i in range(0, len(rows), chunk_size):
@@ -202,6 +246,17 @@ def sync_owned_games():
 
         if dialect_name == "sqlite":
             stmt = sqlite_insert(UserGameStat).values(chunk)
+            stmt = stmt.on_conflict_do_update(
+                index_elements=["steamid", "appid"],
+                set_={
+                    "playtime_forever": stmt.excluded.playtime_forever,
+                    "playtime_2weeks": stmt.excluded.playtime_2weeks,
+                    "last_played": stmt.excluded.last_played,
+                },
+            )
+            db.session.execute(stmt)
+        elif dialect_name == "postgresql":
+            stmt = pg_insert(UserGameStat).values(chunk)
             stmt = stmt.on_conflict_do_update(
                 index_elements=["steamid", "appid"],
                 set_={
@@ -224,13 +279,33 @@ def sync_owned_games():
 
     # Trigger background completion
     app_object = current_app._get_current_object()
-    threading.Thread(target=background_sync_missing, args=(app_object,), daemon=True).start()
+    set_sync_status(
+        sp.steamid,
+        state="ownership_synced",
+        pending=True,
+        message=f"Imported {len(rows)} owned games. Metadata sync is still running...",
+        remaining=None,
+    )
+    threading.Thread(target=background_sync_missing, args=(app_object, sp.steamid), daemon=True).start()
 
     return jsonify({
         "ok": True,
         "synced": len(rows),
-        "updated_at": now
+        "updated_at": now,
+        "status": "ownership_synced",
     }), 200
+
+
+@steam_bp.get("/sync_status")
+@jwt_required()
+def get_sync_status():
+    user_id = int(get_jwt_identity())
+    sp = SteamProfile.query.filter_by(auth_user_id=user_id).first()
+    if not sp:
+        return jsonify({"error": "steam_not_bound"}), 400
+
+    payload = get_sync_status_payload(sp.steamid)
+    return jsonify({"ok": True, **payload}), 200
 
 
 @steam_bp.get("/friends")

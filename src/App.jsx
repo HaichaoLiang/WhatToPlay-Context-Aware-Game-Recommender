@@ -194,6 +194,10 @@ async function fetchOwnedLibraryIndex({ token }) {
   }
 }
 
+async function fetchSteamSyncStatus({ token }) {
+  return apiRequest('/api/steam/sync_status', { token })
+}
+
 const normalizePrivateItem = (item, device) => ({
   id: item.appid,
   appid: item.appid,
@@ -282,6 +286,7 @@ function App() {
   const [steamBusy, setSteamBusy] = useState(false)
   const [steamMessage, setSteamMessage] = useState('')
   const [librarySyncNotice, setLibrarySyncNotice] = useState('')
+  const [steamSyncStatus, setSteamSyncStatus] = useState({ state: 'idle', pending: false, message: '' })
 
   const isAuthed = Boolean(token && me?.user)
   const steamBound = Boolean(me?.steam?.steamid)
@@ -400,12 +405,35 @@ function App() {
     }
   }, [steamBound, token])
 
+  const refreshSteamSyncStatus = useCallback(async () => {
+    if (!token || !steamBound) return
+    try {
+      const payload = await fetchSteamSyncStatus({ token })
+      setSteamSyncStatus({
+        state: payload.state || 'idle',
+        pending: Boolean(payload.pending),
+        message: payload.message || '',
+      })
+    } catch {
+      setSteamSyncStatus({ state: 'idle', pending: false, message: '' })
+    }
+  }, [steamBound, token])
+
   useEffect(() => {
     if (currentStep === 'dashboard') {
       fetchSteamFriends()
       refreshOwnedLibraryIndex()
+      refreshSteamSyncStatus()
     }
-  }, [currentStep, fetchSteamFriends, refreshOwnedLibraryIndex])
+  }, [currentStep, fetchSteamFriends, refreshOwnedLibraryIndex, refreshSteamSyncStatus])
+
+  useEffect(() => {
+    if (!steamSyncStatus.pending || currentStep !== 'dashboard') return
+    const timer = window.setInterval(() => {
+      refreshSteamSyncStatus()
+    }, 2500)
+    return () => window.clearInterval(timer)
+  }, [currentStep, refreshSteamSyncStatus, steamSyncStatus.pending])
 
   useEffect(() => {
     if (me?.steam?.steamid) {
@@ -451,6 +479,7 @@ function App() {
     setDiscoverShopList([])
     setOwnedLibraryAppids([])
     setOwnedLibraryTitles([])
+    setSteamSyncStatus({ state: 'idle', pending: false, message: '' })
   }
 
   const handleBindSteam = async () => {
@@ -485,10 +514,16 @@ function App() {
         method: 'POST',
         token,
       })
-      setSteamMessage(`Steam library ownership sync complete. Imported ${payload.synced || 0} games.`)
-      setLibrarySyncNotice('Metadata enrichment and index rebuild are still running in the background, so recommendations may update gradually for the next few minutes.')
+      setSteamMessage(`Imported ${payload.synced || 0} owned games. Still syncing metadata...`)
+      setLibrarySyncNotice('Metadata enrichment and index rebuild are still running. Recommendations will unlock when sync is fully complete.')
+      setSteamSyncStatus({
+        state: payload.status || 'ownership_synced',
+        pending: true,
+        message: `Imported ${payload.synced || 0} owned games. Metadata sync is still running...`,
+      })
       await fetchSteamFriends()
       await refreshOwnedLibraryIndex()
+      await refreshSteamSyncStatus()
     } catch (err) {
       setSteamMessage(`Steam sync failed: ${err.message}`)
     } finally {
@@ -497,6 +532,11 @@ function App() {
   }
 
   const handleRecommend = async () => {
+    if (isAuthed && steamBound && steamSyncStatus.pending) {
+      window.alert('Steam sync is still running. Please wait until metadata sync is fully complete before generating your Play Now list.')
+      return
+    }
+
     setLoading(true)
     setError('')
 
@@ -808,6 +848,7 @@ function App() {
             steamBusy={steamBusy}
             steamMessage={steamMessage}
             librarySyncNotice={librarySyncNotice}
+            steamSyncStatus={steamSyncStatus}
             steamIdInput={steamIdInput}
             setSteamIdInput={setSteamIdInput}
             timeAvailable={timeAvailable}
