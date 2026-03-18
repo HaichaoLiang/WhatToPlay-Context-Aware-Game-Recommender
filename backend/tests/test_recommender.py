@@ -22,6 +22,9 @@ class RecommenderRankingTests(unittest.TestCase):
             difficulty="low",
             multiplayer_mode="solo",
             genres="rpg",
+            metacritic_score=None,
+            positive=0,
+            negative=0,
         )
 
     def make_stat(self, **kwargs):
@@ -57,6 +60,23 @@ class RecommenderRankingTests(unittest.TestCase):
 
         self.assertGreater(recent_score, old_score)
 
+    def test_quality_signal_breaks_ties_between_otherwise_similar_games(self):
+        high_quality = self.make_catalog()
+        high_quality.metacritic_score = 90
+        high_quality.positive = 920
+        high_quality.negative = 80
+
+        lower_quality = self.make_catalog()
+        lower_quality.metacritic_score = 78
+        lower_quality.positive = 180
+        lower_quality.negative = 120
+
+        stat = self.make_stat(playtime_forever=240, playtime_2weeks=0, last_played=None)
+
+        high_score, _ = score_candidate(stat, high_quality, self.make_ctx(), {}, 0.0)
+        low_score, _ = score_candidate(stat, lower_quality, self.make_ctx(), {}, 0.0)
+
+        self.assertGreater(high_score, low_score)
 
 if __name__ == "__main__":
     unittest.main()

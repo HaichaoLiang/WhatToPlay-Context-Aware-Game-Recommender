@@ -53,6 +53,24 @@ def recency_days(last_played_ts: int | None):
     return (now - last_played_ts) / 86400
 
 
+def quality_signal(catalog):
+    score = 0.0
+
+    metacritic = getattr(catalog, "metacritic_score", None)
+    if metacritic is not None:
+        score += clamp((float(metacritic) - 75.0) / 10.0, -2.0, 2.5)
+
+    positive = getattr(catalog, "positive", 0) or 0
+    negative = getattr(catalog, "negative", 0) or 0
+    total = positive + negative
+    if total > 0:
+        approval = positive / total
+        confidence = min(1.0, math.log10(total + 1) / 3.0)
+        score += clamp((approval - 0.72) * 18.0 * confidence, -2.5, 3.5)
+
+    return score
+
+
 def score_candidate(game_stat, catalog, ctx: RecommendationContext, genre_weights: dict, comfort_bias: float):
     reasons = []
     score = 0.0
@@ -133,6 +151,11 @@ def score_candidate(game_stat, catalog, ctx: RecommendationContext, genre_weight
     # Recent activity tiny boost
     if game_stat.playtime_2weeks and game_stat.playtime_2weeks > 0:
         score += min(5, math.log2(1 + game_stat.playtime_2weeks / 30))
+
+    signal = quality_signal(catalog)
+    score += signal
+    if signal >= 2:
+        reasons.append("Strong overall quality signal")
 
     return score, reasons[:3]
 
