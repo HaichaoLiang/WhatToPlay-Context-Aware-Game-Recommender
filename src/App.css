@@ -1139,6 +1139,18 @@ ul {
   font-size: 0.84rem;
 }
 
+.recommendation-group-header {
+  display: grid;
+  gap: 4px;
+  margin: 0 0 14px;
+}
+
+.group-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
 .alt-list {
   margin-top: 16px;
 }
@@ -1175,6 +1187,14 @@ ul {
   grid-template-areas:
     "thumb main score"
     "actions actions actions";
+}
+
+.alt-card-static {
+  cursor: default;
+}
+
+.alt-card-static:hover {
+  transform: none;
 }
 
 .alt-card img {
@@ -1253,6 +1273,16 @@ ul {
 
 .alt-actions-inline button:hover {
   border-color: color-mix(in srgb, var(--accent) 44%, var(--border));
+}
+
+.discover-header {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+}
+
+.discover-card {
+  border-style: dashed;
 }
 
 @keyframes rise {
@@ -1344,4 +1374,8 @@ ul {
   .alt-actions-inline {
     flex-direction: column;
   }
+}
+
+.shop-list-section {
+  margin-top: 18px;
 }

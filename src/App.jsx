@@ -194,7 +194,7 @@ const normalizePrivateItem = (item, device) => ({
   platform: device === 'PC' ? 'PC (Windows)' : device,
   thumbnail: item.header_image,
   thumb: item.header_image,
-  short_description: `Steam library recommendation with context-aware score ${Math.round(item.score || 0)}.`,
+  short_description: `Steam library recommendation with context-aware score ${Number(item.score || 0).toFixed(1)}.`,
   sessionLength: item.avg_session_minutes || 45,
   score: item.score || 0,
   reasons: item.why && item.why.length ? item.why : ['Matches your current context'],
@@ -243,10 +243,15 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [rankedGames, setRankedGames] = useState([])
+  const [publicRankedGames, setPublicRankedGames] = useState([])
   const [dismissedIds, setDismissedIds] = useState(new Set())
+  const [publicDismissedIds, setPublicDismissedIds] = useState(new Set())
   const [acceptedQueue, setAcceptedQueue] = useState([])
+  const [discoverShopList, setDiscoverShopList] = useState([])
   const [actionMessage, setActionMessage] = useState('')
   const [selectedAlternativeId, setSelectedAlternativeId] = useState(null)
+  const [selectedPublicAlternativeId, setSelectedPublicAlternativeId] = useState(null)
+  const [publicActionMessage, setPublicActionMessage] = useState('')
   const [liveFriendsCount, setLiveFriendsCount] = useState(null)
   const [dataSource, setDataSource] = useState('none')
   const [steamFriends, setSteamFriends] = useState([])
@@ -275,8 +280,14 @@ function App() {
     () => rankedGames.filter((g) => !dismissedIds.has(g.id || g.appid)),
     [rankedGames, dismissedIds],
   )
+  const publicVisibleGames = useMemo(
+    () => publicRankedGames.filter((g) => !publicDismissedIds.has(g.id || g.appid)),
+    [publicRankedGames, publicDismissedIds],
+  )
   const topPick = visibleGames[0] || null
   const alternatives = useMemo(() => visibleGames.slice(1, 6), [visibleGames])
+  const publicTopPick = publicVisibleGames[0] || null
+  const publicAlternatives = useMemo(() => publicVisibleGames.slice(1, 7), [publicVisibleGames])
 
   const getScoreSummary = (score) => {
     const rounded = Math.round(Number(score) || 0)
@@ -286,6 +297,8 @@ function App() {
     if (rounded >= 20) return 'Playable option'
     return 'Weak fit right now'
   }
+
+  const formatScore = (score) => Number(score || 0).toFixed(1)
 
   const handleTimeChange = (value) => {
     if (value === '' || value === null || value === undefined) return
@@ -393,6 +406,7 @@ function App() {
     setSteamFriends([])
     setDismissedIds(new Set())
     setAcceptedQueue([])
+    setDiscoverShopList([])
   }
 
   const handleBindSteam = async () => {
@@ -442,6 +456,8 @@ function App() {
 
     try {
       if (isAuthed && steamBound) {
+        let privateLoaded = false
+
         try {
           const privateResult = await fetchPrivateRecommendations({
             token,
@@ -457,34 +473,56 @@ function App() {
             setLiveFriendsCount(privateResult.friendsOnlineCount)
             setDataSource('private')
             setDismissedIds(new Set())
+            setPublicDismissedIds(new Set())
             setSelectedAlternativeId(null)
+            setSelectedPublicAlternativeId(null)
             setActionMessage('')
-            return
+            setPublicActionMessage('')
+            privateLoaded = true
           }
         } catch {
           // Fall through to backend public API before local fallback.
         }
+
+        try {
+          const publicRanked = await fetchPublicRecommendations({ timeAvailable, energy, goal, device, friendsOnline })
+          setPublicRankedGames(publicRanked)
+          setPublicDismissedIds(new Set())
+          setSelectedPublicAlternativeId(null)
+          setPublicActionMessage('')
+        } catch {
+          setPublicRankedGames([])
+        }
+
+        if (privateLoaded) return
       }
 
       const publicRanked = await fetchPublicRecommendations({ timeAvailable, energy, goal, device, friendsOnline })
       if (!publicRanked.length) throw new Error('No recommendations returned')
 
       setRankedGames(publicRanked)
+      setPublicRankedGames([])
       setLiveFriendsCount(null)
       setDataSource('public')
       setDismissedIds(new Set())
+      setPublicDismissedIds(new Set())
       setSelectedAlternativeId(null)
+      setSelectedPublicAlternativeId(null)
       setActionMessage('')
+      setPublicActionMessage('')
     } catch {
       const rankedFallback = rankGames({
         games: FALLBACK_GAMES,
         context: { timeAvailable, energy, goal, device, friendsOnline },
       })
       setRankedGames(rankedFallback)
+      setPublicRankedGames([])
       setLiveFriendsCount(null)
       setDataSource('fallback')
       setDismissedIds(new Set())
+      setPublicDismissedIds(new Set())
       setSelectedAlternativeId(null)
+      setSelectedPublicAlternativeId(null)
       setError('Backend unavailable, showing local demo data.')
     } finally {
       setLoading(false)
@@ -502,6 +540,17 @@ function App() {
     })
   }
 
+  const movePublicToFront = (targetId) => {
+    setPublicRankedGames((prev) => {
+      const idx = prev.findIndex((g) => (g.id || g.appid) === targetId)
+      if (idx <= 0) return prev
+      const copy = [...prev]
+      const [picked] = copy.splice(idx, 1)
+      copy.unshift(picked)
+      return copy
+    })
+  }
+
   const handleShuffle = () => {
     if (visibleGames.length <= 1) return
     const candidatePool = visibleGames.slice(1)
@@ -510,12 +559,28 @@ function App() {
     setActionMessage(`Shuffled to: ${randomPick.title}`)
   }
 
+  const handlePublicShuffle = () => {
+    if (publicVisibleGames.length <= 1) return
+    const candidatePool = publicVisibleGames.slice(1)
+    const randomPick = candidatePool[Math.floor(Math.random() * candidatePool.length)]
+    movePublicToFront(randomPick.id || randomPick.appid)
+    setPublicActionMessage(`Shuffled to: ${randomPick.title}`)
+  }
+
   const handlePromoteAlternative = (item) => {
     const id = item?.id || item?.appid
     if (!id) return
     moveToFront(id)
     setSelectedAlternativeId(null)
     setActionMessage(`Promoted "${item.title}" to Top Pick.`)
+  }
+
+  const handlePromotePublicAlternative = (item) => {
+    const id = item?.id || item?.appid
+    if (!id) return
+    movePublicToFront(id)
+    setSelectedPublicAlternativeId(null)
+    setPublicActionMessage(`Promoted "${item.title}" to Discover Pick.`)
   }
 
   const submitFeedback = async (item, action) => {
@@ -583,6 +648,44 @@ function App() {
   const handleRefreshQueue = () => {
     setAcceptedQueue([])
     setActionMessage('Play Next queue refreshed.')
+  }
+
+  const handleAcceptPublic = (item) => {
+    const id = item?.id || item?.appid
+    if (!id) return
+    setDiscoverShopList((prev) => {
+      const shopItem = {
+        id,
+        title: item.title,
+        thumbnail: item.thumbnail || item.thumb || '',
+        genre: item.genre || '',
+      }
+      return [shopItem, ...prev.filter((q) => q.id !== id)].slice(0, 12)
+    })
+    setPublicDismissedIds((prev) => {
+      const next = new Set(prev)
+      next.add(id)
+      return next
+    })
+    setSelectedPublicAlternativeId(null)
+    setPublicActionMessage(`Added "${item.title}" to Shop List.`)
+  }
+
+  const handleRejectPublic = (item) => {
+    const id = item?.id || item?.appid
+    if (!id) return
+    setPublicDismissedIds((prev) => {
+      const next = new Set(prev)
+      next.add(id)
+      return next
+    })
+    setSelectedPublicAlternativeId(null)
+    setPublicActionMessage(`Skipped "${item.title}" from Discover More.`)
+  }
+
+  const handleRemoveFromShopList = (shopItem) => {
+    setDiscoverShopList((prev) => prev.filter((item) => item.id !== shopItem.id))
+    setPublicActionMessage(`Removed "${shopItem.title}" from Shop List.`)
   }
 
   if (currentStep === 'auth' && showIntroPage) {
@@ -695,10 +798,14 @@ function App() {
           </div>
         )}
 
-        {currentStep === 'dashboard' && !topPick && <p className="placeholder">Run the check-in to see your ranked recommendations.</p>}
+        {currentStep === 'dashboard' && !topPick && !publicTopPick && <p className="placeholder">Run the check-in to see your ranked recommendations.</p>}
 
         {currentStep === 'dashboard' && topPick && (
           <>
+            <div className="recommendation-group-header">
+              <p className="label">From Your Steam Library</p>
+              <p className="group-note">Personal picks based on what you already own and play.</p>
+            </div>
             <article className="top-pick-card">
               <p className="label">Top Pick</p>
               <img src={topPick.thumbnail || topPick.thumb} alt={topPick.title} />
@@ -710,7 +817,7 @@ function App() {
                 <span>{topPick.platform}</span>
               </div>
               <p className="top-score-note">
-                Context Fit Score: <strong>{Math.round(topPick.score || 0)}</strong>
+                Context Fit Score: <strong>{formatScore(topPick.score)}</strong>
                 <span> Built from time fit, energy fit, social fit, device fit, and quality signal.</span>
               </p>
               <ul>
@@ -751,7 +858,7 @@ function App() {
                     <small>{(game.reasons && game.reasons[0]) || 'Good contextual match'}</small>
                   </div>
                   <div className="alt-score" title="Score combines time, energy, social context, device fit, and quality signal">
-                    <strong>{Math.round(game.score || 0)}</strong>
+                    <strong>{formatScore(game.score)}</strong>
                     <small>{getScoreSummary(game.score)}</small>
                   </div>
                   {selectedAlternativeId === (game.id || game.appid) && (
@@ -787,6 +894,118 @@ function App() {
                       <small>Accepted recommendation</small>
                     </div>
                     <button type="button" className="chip queue-remove-btn" onClick={() => handleRemoveFromQueue(title)}>
+                      Delete
+                    </button>
+                  </article>
+                ))}
+              </section>
+            )}
+          </>
+        )}
+
+        {currentStep === 'dashboard' && !topPick && dataSource === 'private' && (
+          <section className="alt-list">
+            <div className="recommendation-group-header">
+              <p className="label">From Your Steam Library</p>
+              <p className="group-note">No strong personal library match yet. Try syncing again or adjusting your context.</p>
+            </div>
+          </section>
+        )}
+
+        {currentStep === 'dashboard' && publicTopPick && (
+          <>
+            <div className="recommendation-group-header discover-header">
+              <p className="label">Discover More Games</p>
+              <p className="group-note">Broader recommendations from public game catalogs and deal data.</p>
+            </div>
+
+            <article className="top-pick-card discover-card">
+              <p className="label">Discover Pick</p>
+              <img src={publicTopPick.thumbnail || publicTopPick.thumb} alt={publicTopPick.title} />
+              <h2>{publicTopPick.title}</h2>
+              <p>{publicTopPick.short_description}</p>
+              <div className="meta-row">
+                <span>{publicTopPick.genre}</span>
+                <span>~{publicTopPick.sessionLength} min session</span>
+                <span>{publicTopPick.platform}</span>
+              </div>
+              <p className="top-score-note">
+                Discover Score: <strong>{formatScore(publicTopPick.score)}</strong>
+                <span> Ranked from time fit, energy fit, social fit, device fit, and public quality signal.</span>
+              </p>
+              <ul>
+                {(publicTopPick.reasons || []).map((reason) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+              </ul>
+
+              <div className="decision-row">
+                <button type="button" onClick={handlePublicShuffle}>Shuffle Pick</button>
+                <button type="button" onClick={() => handleAcceptPublic(publicTopPick)}>Add to Shop List</button>
+                <button type="button" onClick={() => handleRejectPublic(publicTopPick)}>Reject & Skip</button>
+              </div>
+
+              {publicActionMessage && <p className="feedback">{publicActionMessage}</p>}
+            </article>
+
+            {!!publicAlternatives.length && (
+              <section className="alt-list">
+                <h3>More To Explore</h3>
+                {publicAlternatives.map((game) => (
+                  <article
+                    className={selectedPublicAlternativeId === (game.id || game.appid) ? 'alt-card is-selected' : 'alt-card'}
+                    key={game.id || game.appid}
+                    onClick={() => setSelectedPublicAlternativeId((prev) => (prev === (game.id || game.appid) ? null : (game.id || game.appid)))}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault()
+                        setSelectedPublicAlternativeId((prev) => (prev === (game.id || game.appid) ? null : (game.id || game.appid)))
+                      }
+                    }}
+                  >
+                    <img src={game.thumbnail || game.thumb} alt={game.title} />
+                    <div className="alt-main">
+                      <h4>{game.title}</h4>
+                      <p>{game.genre}</p>
+                      <small>{(game.reasons && game.reasons[0]) || 'Good contextual match'}</small>
+                    </div>
+                    <div className="alt-score" title="Score combines time, energy, social context, device fit, and public quality signal">
+                      <strong>{formatScore(game.score)}</strong>
+                      <small>{getScoreSummary(game.score)}</small>
+                    </div>
+                    {selectedPublicAlternativeId === (game.id || game.appid) && (
+                      <div className="alt-actions-inline" onClick={(e) => e.stopPropagation()}>
+                        <button type="button" onClick={() => handlePromotePublicAlternative(game)}>Shuffle Pick</button>
+                        <button type="button" onClick={() => handleAcceptPublic(game)}>Add to Shop List</button>
+                        <button type="button" onClick={() => handleRejectPublic(game)}>Reject & Skip</button>
+                      </div>
+                    )}
+                  </article>
+                ))}
+              </section>
+            )}
+
+            {!!discoverShopList.length && (
+              <section className="alt-list shop-list-section">
+                <div className="queue-header">
+                  <h3>Shop List</h3>
+                </div>
+                {discoverShopList.map((game) => (
+                  <article className="queue-card" key={game.id}>
+                    <div className="queue-thumb-wrap">
+                      {game.thumbnail ? (
+                        <img className="queue-thumb" src={game.thumbnail} alt={game.title} loading="lazy" decoding="async" />
+                      ) : (
+                        <div className="queue-thumb placeholder-avatar" />
+                      )}
+                    </div>
+                    <div className="queue-item-copy">
+                      <h4>{game.title}</h4>
+                      <small>{game.genre ? `Discover pick: ${game.genre}` : 'Saved from Discover More'}</small>
+                    </div>
+                    <button type="button" className="chip queue-remove-btn" onClick={() => handleRemoveFromShopList(game)}>
                       Delete
                     </button>
                   </article>
